@@ -442,9 +442,14 @@ class BoschGatewayEntry:
             await self.component_update(SENSOR, event_time)
             await self.component_update(BINARY_SENSOR, event_time)
             await self.component_update(CLIMATE, event_time)
-            await self.component_update(WATER_HEATER, event_time)
-            await self.component_update(SWITCH, event_time)
-            await self.component_update(NUMBER, event_time)
+            if WATER_HEATER in self.supported_platforms:
+                await self.component_update(WATER_HEATER, event_time)
+            if SWITCH in self.supported_platforms:
+                await self.component_update(SWITCH, event_time)
+            if SELECT in self.supported_platforms:
+                await self.component_update(SELECT, event_time)
+            if NUMBER in self.supported_platforms:
+                await self.component_update(NUMBER, event_time)
             _LOGGER.debug("Finish updating entities. Waiting for next scheduled check.")
 
     async def firmware_refresh(self, event_time=None):
