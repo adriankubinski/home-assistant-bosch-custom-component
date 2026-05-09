@@ -20,12 +20,19 @@ from .const import (
 
 
 def _is_select_bosch_object(bosch_object) -> bool:
-    return (
-        hasattr(bosch_object, "options")
-        and bool(getattr(bosch_object, "options", []))
-        and hasattr(bosch_object, "set_value")
-        and getattr(bosch_object, "writeable", 0)
-    )
+    # Check if object has options (preferred way)
+    if hasattr(bosch_object, "options") and bool(getattr(bosch_object, "options", [])):
+        return getattr(bosch_object, "writeable", 0) and hasattr(bosch_object, "set_value")
+
+    # Fallback: check for allowedValues in raw properties
+    try:
+        props = bosch_object.get_property(bosch_object.attr_id) if hasattr(bosch_object, 'get_property') else {}
+        if isinstance(props, dict) and 'allowedValues' in props and props.get('writeable', 0):
+            return bool(props['allowedValues'])
+    except Exception:
+        pass
+
+    return False
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -121,7 +128,19 @@ class BoschSelect(BoschEntity, SelectEntity):
     @property
     def options(self) -> list[str]:
         """Options list."""
-        return self._bosch_object.options or []
+        # Try preferred way first
+        if hasattr(self._bosch_object, "options") and self._bosch_object.options:
+            return self._bosch_object.options
+
+        # Fallback: get from raw properties
+        try:
+            props = self._bosch_object.get_property(self._attr_uri)
+            if isinstance(props, dict) and 'allowedValues' in props:
+                return props['allowedValues']
+        except Exception:
+            pass
+
+        return []
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
