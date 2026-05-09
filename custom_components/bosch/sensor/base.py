@@ -50,6 +50,7 @@ class BoschBaseSensor(BoschEntity, SensorEntity):
         self._attr_uri = attr_uri
         if self._bosch_object.device_class:
             self._attr_device_class = self._bosch_object.device_class
+        self._attr_state_class = None
         if self._bosch_object.state_class:
             self._attr_state_class = self._bosch_object.state_class
         self._attr_entity_category = entity_categories.get(
