@@ -23,6 +23,15 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _is_select_bosch_object(bosch_object) -> bool:
+    return (
+        hasattr(bosch_object, "options")
+        and bool(getattr(bosch_object, "options", []))
+        and hasattr(bosch_object, "set_value")
+        and getattr(bosch_object, "writeable", 0)
+    )
+
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Bosch Switch from a config entry."""
     uuid = config_entry.data[UUID]
@@ -30,6 +39,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     enabled_switches = config_entry.data.get(SWITCH, [])
     data_switch = []
     for switch in data[GATEWAY].regular_switches:
+        if _is_select_bosch_object(switch):
+            continue
         data_switch.append(
             BoschSwitch(
                 hass=hass,
@@ -46,6 +57,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         circuits = data[GATEWAY].get_circuits(circ_type)
         for circuit in circuits:
             for switch in circuit.regular_switches:
+                if _is_select_bosch_object(switch):
+                    continue
                 data_switch.append(
                     CircuitSwitch(
                         hass=hass,

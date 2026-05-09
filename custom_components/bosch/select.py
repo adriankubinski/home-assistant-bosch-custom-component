@@ -10,11 +10,22 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .bosch_entity import BoschEntity
 from .const import (
+    CIRCUITS,
     DOMAIN,
+    GATEWAY,
     SIGNAL_BOSCH,
     SIGNAL_SELECT,
     UUID,
 )
+
+
+def _is_select_bosch_object(bosch_object) -> bool:
+    return (
+        hasattr(bosch_object, "options")
+        and bool(getattr(bosch_object, "options", []))
+        and hasattr(bosch_object, "set_value")
+        and getattr(bosch_object, "writeable", 0)
+    )
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -23,8 +34,29 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     data = hass.data[DOMAIN][uuid]
     enabled = config_entry.data.get(SELECT, [])
     data[SELECT] = []
-    selects = data[GATEWAY].switches.selects
+    select_ids = set()
+    candidates: list[tuple[str, object]] = []
+
+    gateway = data[GATEWAY]
+    selects = getattr(gateway.switches, "selects", [])
     for select in selects:
+        candidates.append(("Select", select))
+        select_ids.add(select.attr_id)
+
+    for switch in getattr(gateway, "regular_switches", []):
+        if _is_select_bosch_object(switch) and switch.attr_id not in select_ids:
+            candidates.append(("Select", switch))
+            select_ids.add(switch.attr_id)
+
+    for circ_type in CIRCUITS:
+        circuits = gateway.get_circuits(circ_type)
+        for circuit in circuits:
+            for switch in getattr(circuit, "regular_switches", []):
+                if _is_select_bosch_object(switch) and switch.attr_id not in select_ids:
+                    candidates.append((f"Select{circuit.name}", switch))
+                    select_ids.add(switch.attr_id)
+
+    for domain_name, select in candidates:
         data[SELECT].append(
             BoschSelect(
                 hass=hass,
@@ -33,7 +65,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 gateway=data[GATEWAY],
                 name=select.name,
                 attr_uri=select.attr_id,
-                domain_name="Select",
+                domain_name=domain_name,
                 is_enabled=select.attr_id in enabled,
             )
         )
